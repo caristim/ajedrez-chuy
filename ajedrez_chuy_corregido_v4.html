@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ajedrez — CEA Barra del Chuy & Escuela Nº 74</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #f5f0e8;
+    --parchment: #e8dfc8;
+    --dark: #1a1208;
+    --brown: #5c3d1e;
+    --gold: #c9a84c;
+    --gold-light: #e8c96a;
+    --white-sq: #f0d9b5;
+    --black-sq: #b58863;
+    --white-piece: #fffff0;
+    --black-piece: #1a1208;
+    --red: #8b2020;
+    --green: #2d5a27;
+    --blue: #1a3a5c;
+    --highlight: rgba(255,215,0,0.45);
+    --move-dot: rgba(30,30,30,0.18);
+    --shadow: rgba(0,0,0,0.25);
+    --font-serif: 'Crimson Pro', serif;
+    --font-header: 'Cinzel', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(circle at center, #2c1a0c 0%, #120a04 100%);
+    color: var(--cream);
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    line-height: 1.5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Cabecera Clásica */
+  header {
+    background: linear-gradient(to bottom, #231508, #1a0f05);
+    border-bottom: 2px solid var(--gold);
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    position: relative;
+    z-index: 10;
+  }
+  h1 {
+    font-family: var(--font-header);
+    font-weight: 900;
+    font-size: 2.2rem;
+    letter-spacing: 2px;
+    color: var(--gold);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  }
+  .subtitle {
+    font-size: 1rem;
+    font-style: italic;
+    color: var(--parchment);
+    opacity: 0.8;
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* Navegación Superior */
+  nav {
+    background: rgba(26,18,8,0.9);
+    border-bottom: 1px solid rgba(201,168,76,0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    backdrop-filter: blur(5px);
+  }
+  .nav-links { display: flex; gap: 15px; }
+  .nav-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--parchment);
+    font-family: var(--font-header);
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 3px;
+  }
+  .nav-btn:hover, .nav-btn.active {
+    color: var(--gold-light);
+    border-color: rgba(232,201,106,0.4);
+    background: rgba(92,61,30,0.3);
+  }
+  .logout-btn { border-color: rgba(139,32,32,0.4); color: #ff9999; }
+  .logout-btn:hover { background: rgba(139,32,32,0.2); border-color: var(--red); color: #ffcccc; }
+
+  /* Contenedor Principal */
+  main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 30px 15px;
+    position: relative;
+  }
+
+  .screen {
+    width: 100%;
+    max-width: 950px;
+    animation: fadeIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+  .hidden { display: none !important; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Estilos de Tarjetas Clásicas */
+  .card {
+    background: #23180d;
+    border: 1px solid rgba(201,168,76,0.25);
+    border-radius: 6px;
+    box-shadow: 0 10px 30px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.05);
+    padding: 30px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: ''; position: absolute; top:0; left:0; right:0; height: 3px;
+    background: linear-gradient(to right, transparent, var(--gold), transparent);
+  }
+
+  /* Formulario de Login Doble */
+  .login-container {
+    max-width: 750px;
+    margin: 0 auto;
+  }
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid rgba(201,168,76,0.2);
+    margin-bottom: 25px;
+  }
+  .tab {
+    flex: 1; text-align: center; padding: 12px;
+    font-family: var(--font-header); font-weight: 600; font-size: 1rem;
+    color: var(--parchment); cursor: pointer; opacity: 0.6;
+    transition: all 0.2s; border-bottom: 2px solid transparent;
+  }
+  .tab:hover { opacity: 0.9; color: var(--gold-light); }
+  .tab.active { opacity: 1; color: var(--gold); border-bottom-color: var(--gold); font-weight: 900; }
+
+  .form-group { margin-bottom: 20px; }
+  label {
+    display: block; font-family: var(--font-header); font-size: 0.85rem;
+    color: var(--gold-light); margin-bottom: 6px; letter-spacing: 1px;
+  }
+  input[type="text"], input[type="password"] {
+    width: 100%; background: #150e08; border: 1px solid #44301c;
+    border-radius: 4px; padding: 12px; color: var(--cream);
+    font-family: var(--font-serif); font-size: 1.1rem; transition: all 0.2s;
+  }
+  input[type="text"]:focus, input[type="password"]:focus {
+    outline: none; border-color: var(--gold); box-shadow: 0 0 8px rgba(201,168,76,0.2);
+  }
+  .btn {
+    width: 100%; background: linear-gradient(to bottom, #8b6532, #5c3d1e);
+    border: 1px solid var(--gold); border-radius: 4px; color: var(--cream);
+    font-family: var(--font-header); font-weight: 600; font-size: 1rem;
+    padding: 12px; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: all 0.2s;
+  }
+  .btn:hover { background: linear-gradient(to bottom, #a0763d, #6e4925); box-shadow: 0 4px 14px rgba(0,0,0,0.5); }
+  .btn:active { transform: translateY(1px); box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+
+  /* Mensajes de Alerta */
+  .error-msg, .success-msg {
+    padding: 10px; border-radius: 4px; font-size: 0.95rem; margin-top: 15px;
+    display: none; border: 1px solid; animation: fadeIn 0.3s ease;
+  }
+  .error-msg { background: rgba(139,32,32,0.15); border-color: rgba(139,32,32,0.4); color: #ff9999; }
+  .success-msg { background: rgba(45,90,39,0.15); border-color: rgba(45,90,39,0.4); color: #99ff99; }
+  .show { display: block !important; }
+
+  /* Sala de Espera (Lobby) */
+  .lobby-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .lobby-title { font-family: var(--font-header); color: var(--gold); font-size: 1.5rem; }
+  .online-indicator { font-size: 0.9rem; color: #a5d6a7; display: flex; align-items: center; gap: 6px; }
+  .online-dot { width: 8px; height: 8px; background: #4caf50; border-radius: 50%; box-shadow: 0 0 8px #4caf50; }
+  
+  .room-list { display: flex; flex-direction: column; gap: 12px; max-height: 380px; overflow-y: auto; margin-bottom: 20px; padding-right: 4px; }
+  .room-item {
+    background: #1c130a; border: 1px solid rgba(201,168,76,0.15); border-radius: 5px;
+    padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; transition: all 0.2s ease;
+  }
+  .room-item:hover { border-color: var(--gold); background: #261b0f; transform: translateX(2px); }
+  .room-id { font-family: var(--font-header); font-weight: 600; color: var(--gold-light); font-size: 1.05rem; }
+  .room-info { font-size: 0.95rem; color: var(--parchment); opacity: 0.8; margin-top: 2px; }
+  .badge { font-family: var(--font-header); font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 3px; letter-spacing: 0.5px; }
+  .badge-wait { background: rgba(201,168,76,0.2); border: 1px solid var(--gold); color: var(--gold-light); }
+  .badge-full { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: var(--parchment); }
+
+  /* Sala de Espera (Pre-partida) */
+  .waiting-box { text-align: center; padding: 40px 20px; }
+  .code-display { font-family: var(--font-header); font-size: 2.5rem; font-weight: 900; color: var(--gold); letter-spacing: 4px; margin: 15px 0 30px 0; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+  .vs-container { display: flex; justify-content: center; align-items: center; gap: 40px; margin-bottom: 30px; }
+  .player-slot { width: 160px; background: #1c130a; border: 1px dashed rgba(201,168,76,0.3); padding: 15px; border-radius: 6px; }
+  .player-slot.filled { border-style: solid; border-color: var(--gold); background: #2a1d0f; }
+  .slot-title { font-family: var(--font-header); font-size: 0.8rem; color: var(--gold-light); margin-bottom: 5px; opacity: 0.7; }
+  .slot-name { font-weight: 600; word-break: break-all; }
+  .slot-ci { font-size: 0.85rem; opacity: 0.6; margin-top: 2px; }
+  .vs-badge { font-family: var(--font-header); font-style: italic; color: var(--gold); font-weight: 600; font-size: 1.3rem; }
+  .pulsing { animation: pulse 1.5s infinite; opacity: 0.5; }
+  @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 0.8; } 100% { opacity: 0.4; } }
+
+  /* INTERFAZ DE JUEGO PRINCIPAL */
+  .game-layout { display: flex; flex-direction: row; gap: 25px; align-items: flex-start; justify-content: center; }
+  .board-wrapper { display: flex; flex-direction: column; align-items: center; }
+  
+  /* Indicadores de Jugadores In-Game */
+  .player-card {
+    width: 100%; max-width: 460px; background: #1c130a; border: 1px solid rgba(201,168,76,0.15);
+    padding: 10px 15px; border-radius: 4px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+    transition: all 0.3s;
+  }
+  .player-card.active-player { border-color: var(--gold); background: #281a0c; box-shadow: 0 0 12px rgba(201,168,76,0.15); }
+  .pcard-info { display: flex; flex-direction: column; }
+  .pcard-name { font-weight: 600; font-size: 1.05rem; }
+  .pcard-ci { font-size: 0.8rem; opacity: 0.5; }
+  .pcard-side { font-family: var(--font-header); font-size: 0.75rem; font-weight: 600; padding: 2px 6px; border-radius: 3px; }
+  .side-white { background: var(--cream); color: var(--dark); }
+  .side-black { background: var(--dark); color: var(--cream); border: 1px solid rgba(255,255,255,0.2); }
+
+  /* El Tablero Estilo Clásico */
+  .board-outer { display: flex; position: relative; padding-left: 25px; padding-bottom: 25px; background: #150e08; border-radius: 4px; box-shadow: 0 12px 35px var(--shadow); }
+  .board-grid {
+    display: grid; grid-template-columns: repeat(8, 56px); grid-template-rows: repeat(8, 56px);
+    border: 3px solid #3d2713; position: relative;
+  }
+  .sq {
+    width: 56px; height: 56px; display: flex; justify-content: center; align-items: center;
+    font-size: 2.4rem; user-select: none; cursor: pointer; position: relative; transition: background-color 0.1s;
+  }
+  .light { background-color: var(--white-sq); }
+  .dark  { background-color: var(--black-sq); }
+
+  .piece-white { color: var(--white-piece) !important; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
+  .piece-black { color: var(--black-piece) !important; text-shadow: 0 0 3px rgba(255,255,255,0.5); }
+
+  /* Destacados y Estados de Celdas */
+  .sq.selected { background-color: var(--highlight) !important; }
+  .sq.last-move { background-color: rgba(201,168,76,0.3) !important; }
+  .sq.check-sq { background-color: rgba(139,32,32,0.6) !important; animation: shake 0.4s; }
+  
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-2px); }
+    40%, 80% { transform: translateX(2px); }
+  }
+
+  /* Indicadores de movimientos posibles */
+  .dot { width: 14px; height: 14px; background-color: var(--move-dot); border-radius: 50%; pointer-events: none; }
+  .ring { width: 48px; height: 48px; border: 4px solid var(--move-dot); border-radius: 50%; position: absolute; pointer-events: none; }
+
+  /* Etiquetas de Coordenadas */
+  .labels-rank { position: absolute; left: 0; top: 3px; width: 25px; height: 448px; display: flex; flex-direction: column; }
+  .labels-file { position: absolute; left: 28px; bottom: 0; width: 448px; height: 25px; display: flex; flex-direction: row; }
+  .board-label { display: flex; justify-content: center; align-items: center; flex: 1; font-family: var(--font-header); font-size: 0.75rem; font-weight: 600; opacity: 0.5; color: var(--parchment); }
+
+  /* Panel Lateral de Información y Estado */
+  .game-panel { flex: 1; min-width: 250px; max-width: 320px; display: flex; flex-direction: column; gap: 15px; align-self: stretch; }
+  
+  .status-box { background: #1c130a; border: 1px solid rgba(201,168,76,0.15); padding: 15px; border-radius: 4px; text-align: center; }
+  .turn-title { font-family: var(--font-header); font-size: 0.8rem; color: var(--gold-light); margin-bottom: 4px; letter-spacing: 0.5px; }
+  .turn-value { font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .turn-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.3); }
+  .turn-dot.white { background: var(--cream); }
+  .turn-dot.black { background: var(--dark); }
+
+  .status-banner { padding: 8px; border-radius: 3px; font-weight: 600; font-size: 0.95rem; margin-top: 10px; display: none; text-align: center; border: 1px solid transparent; }
+  .status-banner.show { display: block; }
+  .status-banner.check { background: rgba(201,168,76,0.15); border-color: rgba(201,168,76,0.4); color: var(--gold-light); }
+  .status-banner.checkmate { background: rgba(139,32,32,0.2); border-color: var(--red); color: #ff9999; }
+  .status-banner.stalemate { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.2); color: var(--parchment); }
+
+  /* Registro Histórico de Jugadas */
+  .log-box { background: #170f07; border: 1px solid rgba(201,168,76,0.1); border-radius: 4px; padding: 15px; flex: 1; display: flex; flex-direction: column; min-height: 180px; }
+  .log-title { font-family: var(--font-header); font-size: 0.8rem; color: var(--gold-light); border-bottom: 1px solid rgba(201,168,76,0.1); padding-bottom: 5px; margin-bottom: 10px; }
+  .move-log { flex: 1; overflow-y: auto; font-size: 0.95rem; max-height: 200px; display: flex; flex-direction: column; gap: 4px; padding-right: 4px; }
+  .move-pair { display: grid; grid-template-columns: 35px 1fr 1fr; border-bottom: 1px solid rgba(255,255,255,0.02); padding: 2px 0; }
+  .move-num { opacity: 0.4; font-family: var(--font-header); }
+
+  /* Modales de Coronación y Diálogos */
+  .modal { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; z-index: 100; }
+  .modal.show { display: flex; }
+  .modal-box { background: #23180d; border: 2px solid var(--gold); border-radius: 6px; padding: 25px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8); max-width: 90%; }
+  .modal-title { font-family: var(--font-header); color: var(--gold-light); font-size: 1.2rem; margin-bottom: 15px; }
+  .promo-options { display: flex; gap: 15px; justify-content: center; margin-top: 10px; }
+  .promo-piece { width: 60px; height: 60px; background: #1c130a; border: 1px solid rgba(201,168,76,0.3); border-radius: 4px; display: flex; justify-content: center; align-items: center; font-size: 2.5rem; cursor: pointer; transition: all 0.15s; }
+  .promo-piece:hover { border-color: var(--gold); background: var(--brown); transform: translateY(-2px); }
+
+  /* PANEL DE ADMINISTRACIÓN */
+  .admin-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 25px; }
+  .ci-panel { background: #1c130a; border: 1px solid rgba(201,168,76,0.15); padding: 20px; border-radius: 5px; }
+  .ci-list { max-height: 300px; overflow-y: auto; background: #120903; border: 1px solid rgba(201,168,76,0.1); border-radius: 4px; margin-top: 12px; }
+  .ci-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 15px; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 1rem; }
+  .ci-item:last-child { border-bottom: none; }
+  .ci-del { background: transparent; border: none; color: #ff8888; font-weight: bold; cursor: pointer; padding: 2px 6px; border-radius: 3px; font-size: 0.9rem; }
+  .ci-del:hover { background: rgba(139,32,32,0.3); color: #ffcccc; }
+  .inline-form { display: flex; gap: 10px; margin-top: 15px; }
+  .inline-form input { flex: 1; padding: 8px 12px; font-size: 1rem; }
+  .inline-form .btn { width: auto; padding: 8px 16px; font-size: 0.95rem; }
+
+  /* TUTORIAL / INSTRUCCIONES */
+  .tutorial-box { line-height: 1.6; }
+  .tutorial-box h3 { font-family: var(--font-header); color: var(--gold-light); font-size: 1.3rem; margin-top: 20px; margin-bottom: 6px; }
+  .tutorial-box h3:first-child { margin-top: 0; }
+  .tutorial-box ul, .tutorial-box ol { padding-left: 25px; margin-bottom: 15px; }
+  .tutorial-box li { margin-bottom: 5px; }
+  .piece-guide { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin-top: 15px; }
+  .p-guide-item { background: #1c130a; border: 1px solid rgba(201,168,76,0.1); padding: 12px; border-radius: 4px; display: flex; gap: 12px; align-items: center; }
+  .p-guide-sym { font-size: 2rem; color: var(--gold); min-width: 35px; text-align: center; }
+  .p-guide-txt strong { font-family: var(--font-header); font-size: 0.9rem; color: var(--parchment); display: block; }
+  .p-guide-txt span { font-size: 0.85rem; opacity: 0.7; display: block; line-height: 1.3; }
+
+  /* Indicador de conexión Firebase */
+  .firebase-status { font-size: 0.8rem; display: flex; align-items: center; gap: 5px; opacity: 0.7; }
+  .fb-dot { width: 7px; height: 7px; border-radius: 50%; background: #aaa; }
+  .fb-dot.connected { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+  .fb-dot.error { background: #f44336; }
+
+  /* Adaptación para pantallas medianas o pequeñas */
+  @media (max-width: 820px) {
+    .game-layout { flex-direction: column; align-items: center; }
+    .game-panel { width: 100%; max-width: 448px; }
+    .admin-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 500px) {
+    h1 { font-size: 1.6rem; }
+    .board-grid { grid-template-columns: repeat(8, 42px); grid-template-rows: repeat(8, 42px); }
+    .sq { width: 42px; height: 42px; font-size: 1.8rem; }
+    .dot { width: 10px; height: 10px; }
+    .ring { width: 36px; height: 36px; border-width: 3px; }
+    .labels-rank { height: 336px; }
+    .labels-file { width: 336px; }
+    .vs-container { gap: 15px; }
+    .player-slot { width: 120px; padding: 10px; }
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <h1>♟ Ajedrez</h1>
+    <div class="subtitle">CEA &amp; Escuela Nº 74 — Barra del Chuy · Entorno Educativo Cerrado</div>
+  </header>
+
+  <nav id="top-nav" class="hidden">
+    <div class="nav-links">
+      <button id="nav-lobby" class="nav-btn active" onclick="leaveRoom()">Salas de Juego</button>
+      <button id="nav-tutorial" class="nav-btn" onclick="showTutorial()">¿Cómo se Juega?</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:15px">
+      <div class="firebase-status">
+        <div id="fb-dot" class="fb-dot"></div>
+        <span id="fb-status-text">Conectando...</span>
+      </div>
+      <button class="nav-btn logout-btn" onclick="logout()">Salir de la Cuenta</button>
+    </div>
+  </nav>
+
+  <main>
+    
+    <div id="screen-login" class="screen login-container">
+      <div class="card">
+        <div class="tabs">
+          <div id="tab-btn-alumno" class="tab active" onclick="switchTab('alumno')">Ingreso Alumno</div>
+          <div id="tab-btn-admin" class="tab" onclick="switchTab('admin')">Docente / Admin</div>
+        </div>
+
+        <div id="tab-alumno">
+          <div class="form-group">
+            <label for="ci-input">Tu Cédula de Identidad</label>
+            <input type="text" id="ci-input" placeholder="Ej: 12345678" maxlength="12">
+          </div>
+          <div class="form-group">
+            <label for="name-input">Tu Nombre Completo</label>
+            <input type="text" id="name-input" placeholder="Ej: Juan Pérez" maxlength="30">
+          </div>
+          <button class="btn" onclick="loginAlumno()">Ingresar al Vestíbulo</button>
+          <div id="err-login" class="error-msg"></div>
+        </div>
+
+        <div id="tab-admin" style="display:none">
+          <div class="form-group">
+            <label for="admin-pass">Contraseña de Administrador</label>
+            <input type="password" id="admin-pass" placeholder="Ingresá la clave docente">
+          </div>
+          <button class="btn" onclick="loginAdmin()">Acceder al Panel</button>
+          <div id="err-admin" class="error-msg"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-lobby" class="screen hidden">
+      <div class="card">
+        <div class="lobby-header">
+          <div class="lobby-title">Partidas Activas</div>
+          <div class="online-indicator">
+            <div class="online-dot"></div>
+            <span>Usuarios activos estimados: <strong id="online-count">0</strong></span>
+          </div>
+        </div>
+        
+        <div id="room-list" class="room-list"></div>
+
+        <button class="btn" onclick="createRoom()" style="background: linear-gradient(to bottom, #2d5a27, #1e3d1a); border-color: #4caf50;">
+          ➕ Crear una Nueva Mesa de Partida
+        </button>
+      </div>
+    </div>
+
+    <div id="screen-waiting" class="screen hidden" style="max-width:550px">
+      <div class="card waiting-box">
+        <div class="lobby-title" style="font-size:1.2rem">Código de Mesa Compartida</div>
+        <div id="waiting-code" class="code-display">------</div>
+        <p style="opacity:0.8; margin-bottom:25px">Pasale este código a tu compañero para que se una a la partida desde su equipo.</p>
+        
+        <div class="vs-container">
+          <div id="slot-white" class="player-slot filled">
+            <div class="slot-title">Blancas (Creador)</div>
+            <div id="slot-white-name" class="slot-name">—</div>
+            <div id="slot-white-ci" class="slot-ci"></div>
+          </div>
+          <div class="vs-badge">VS</div>
+          <div id="slot-black" class="player-slot">
+            <div class="slot-title">Negras (Rival)</div>
+            <div id="slot-black-name" class="slot-name pulsing">Esperando...</div>
+            <div id="slot-black-ci" class="slot-ci"></div>
+          </div>
+        </div>
+
+        <div id="waiting-status" style="font-style:italic; opacity:0.6; font-size:0.95rem; margin-bottom:20px">
+          Esperando oponente en red...
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button class="btn" onclick="forceLocalGame()" style="background: linear-gradient(to bottom, #4a3319, #2b1d0e); font-size:0.9rem; padding:8px; border-color: var(--gold)">
+            🤝 Jugar Contra Mí Mismo (Mismo Equipo)
+          </button>
+          <button class="btn" onclick="leaveRoom()" style="background:none; border:1px solid rgba(255,255,255,0.2); box-shadow:none; font-size:0.9rem; padding:8px; width: auto;">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-game" class="screen hidden">
+      <div class="game-layout">
+        
+        <div class="board-wrapper">
+          <div id="pcard-black" class="player-card">
+            <div class="pcard-info">
+              <span id="pname-black" class="pcard-name">Cargando...</span>
+              <span id="pci-black" class="pcard-ci">CI: --</span>
+            </div>
+            <span class="pcard-side side-black">Negras</span>
+          </div>
+
+          <div class="board-outer">
+            <div id="rank-labels" class="labels-rank"></div>
+            <div id="board" class="board-grid"></div>
+            <div id="file-labels" class="labels-file"></div>
+          </div>
+
+          <div id="pcard-white" class="player-card" style="margin-top:12px; margin-bottom:0">
+            <div class="pcard-info">
+              <span id="pname-white" class="pcard-name">Cargando...</span>
+              <span id="pci-white" class="pcard-ci">CI: --</span>
+            </div>
+            <span class="pcard-side side-white">Blancas</span>
+          </div>
+        </div>
+
+        <div class="game-panel">
+          <div class="status-box">
+            <div class="turn-title">Turno de Movimiento</div>
+            <div class="turn-value">
+              <div id="turn-dot" class="turn-dot white"></div>
+              <span id="turn-text">Blancas</span>
+            </div>
+            <div id="status-banner" class="status-banner"></div>
+          </div>
+
+          <div class="log-box">
+            <div class="log-title">Historial de la Partida</div>
+            <div id="move-log" class="move-log">
+              <span style="opacity:0.4;font-style:italic">Sin movimientos aún.</span>
+            </div>
+          </div>
+
+          <button class="btn logout-btn" onclick="leaveRoom()" style="font-size:0.9rem; padding:10px">
+            🏳 Abandonar Mesa
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="screen-admin" class="screen hidden">
+      <div class="card">
+        <div class="lobby-header" style="border-bottom: 1px solid rgba(201,168,76,0.2); padding-bottom:10px">
+          <div class="lobby-title">Panel de Control del Docente</div>
+          <button class="nav-btn logout-btn" onclick="logout()">Cerrar Sesión Admin</button>
+        </div>
+        
+        <div class="admin-grid" style="margin-top:20px">
+          <div class="ci-panel">
+            <label style="font-size:0.9rem">Habilitar Nueva Cédula</label>
+            <p style="font-size:0.85rem; opacity:0.7; margin-bottom:10px">Ingresá el número sin puntos ni guiones para que el alumno pueda jugar.</p>
+            <div class="inline-form">
+              <input type="text" id="new-ci" placeholder="Ej: 51234567" maxlength="10">
+              <button class="btn" onclick="addCI()">Habilitar</button>
+            </div>
+            <div id="err-ci" class="error-msg"></div>
+            <div id="ok-ci" class="success-msg"></div>
+          </div>
+
+          <div class="ci-panel">
+            <label style="font-size:0.9rem">Lista de Cédulas Autorizadas</label>
+            <div id="ci-list" class="ci-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-tutorial" class="screen hidden">
+      <div class="card tutorial-box">
+        <div class="lobby-title" style="border-bottom:1px solid rgba(201,168,76,0.1); padding-bottom:10px; margin-bottom:15px;">Guía Rápida de Ajedrez</div>
+
+        <h3>Cómo Funciona el Juego</h3>
+        <p>
+          Este entorno está adaptado para jugar en red entre distintas computadoras de la escuela, o en la misma computadora compartiendo la pantalla por turnos.
+        </p>
+
+        <h3>El Objetivo del Juego</h3>
+        <p>
+          El objetivo es dejar al <strong>Rey</strong> del rival sin ninguna escapatoria posible. Esa situación reglamentaria se llama <strong>Jaque Mate</strong>.
+        </p>
+
+        <h3>Cómo se Mueven las Piezas</h3>
+        
+        <div class="piece-guide">
+          <div class="p-guide-item">
+            <div class="p-guide-sym">♙</div>
+            <div class="p-guide-txt">
+              <strong>Peón</strong>
+              <span>Avanza una casilla. En su primer movimiento puede avanzar dos. Captura en diagonal.</span>
+            </div>
+          </div>
+          <div class="p-guide-item">
+            <div class="p-guide-sym">♖</div>
+            <div class="p-guide-txt">
+              <strong>Torre</strong>
+              <span>Se mueve en línea recta (filas o columnas) todas las casillas que quiera.</span>
+            </div>
+          </div>
+          <div class="p-guide-item">
+            <div class="p-guide-sym">♘</div>
+            <div class="p-guide-txt">
+              <strong>Caballo</strong>
+              <span>Se mueve en forma de 'L'. Es la única pieza que puede saltar sobre otras.</span>
+            </div>
+          </div>
+          <div class="p-guide-item">
+            <div class="p-guide-sym">♗</div>
+            <div class="p-guide-txt">
+              <strong>Alfil</strong>
+              <span>Se mueve en diagonal todas las casillas que desee por su color asignado.</span>
+            </div>
+          </div>
+          <div class="p-guide-item">
+            <div class="p-guide-sym">♕</div>
+            <div class="p-guide-txt">
+              <strong>Dama o Reina</strong>
+              <span>Combina los movimientos de la Torre y el Alfil. Es la más poderosa.</span>
+            </div>
+          </div>
+          <div class="p-guide-item">
+            <div class="p-guide-sym">♔</div>
+            <div class="p-guide-txt">
+              <strong>Rey</strong>
+              <span>Se mueve una sola casilla en cualquier dirección. Hay que protegerlo siempre.</span>
+            </div>
+          </div>
+        </div>
+
+        <p style="font-size:0.85rem; opacity:0.75; margin-top:25px; border-top: 1px solid rgba(201,168,76,0.1); padding-top: 10px;">
+          Creación: Carlos Aristimuño, Idea: Alexander Cardoso 2026.
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <div id="promo-modal" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">Elige la pieza para coronar</div>
+      <div id="promo-pieces" class="promo-options"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    // ─── CONFIGURACIÓN FIREBASE ───────────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey: "AIzaSyC5D3RMnXiiSfBeXKv8Q7d4NKHa1TS_DeA",
+      authDomain: "ajedrez-barra-del-chuy.firebaseapp.com",
+      databaseURL: "https://ajedrez-barra-del-chuy-default-rtdb.firebaseio.com",
+      projectId: "ajedrez-barra-del-chuy",
+      storageBucket: "ajedrez-barra-del-chuy.firebasestorage.app",
+      messagingSenderId: "931351323358",
+      appId: "1:931351323358:web:40576d258845d7b0c3984f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
+
+    // ─── INDICADOR DE CONEXIÓN ────────────────────────────────────────────────
+    function setFbStatus(ok) {
+      const dot  = document.getElementById('fb-dot');
+      const text = document.getElementById('fb-status-text');
+      if (ok) { dot.className = 'fb-dot connected'; text.textContent = 'En línea'; }
+      else    { dot.className = 'fb-dot error';     text.textContent = 'Sin conexión'; }
+    }
+    // Prueba rápida de conectividad
+    get(ref(db, '.info/connected')).then(() => setFbStatus(true)).catch(() => setFbStatus(false));
+    onValue(ref(db, '.info/connected'), snap => setFbStatus(snap.val() === true));
+
+    // ─── HELPERS DE BASE DE DATOS ─────────────────────────────────────────────
+    async function getStore() {
+      const snap = await get(ref(db, 'rooms'));
+      return snap.exists() ? snap.val() : {};
+    }
+    async function setStore(data) {
+      await set(ref(db, 'rooms'), data);
+    }
+    async function setRoom(id, data) {
+      await set(ref(db, 'rooms/' + id), data);
+    }
+    async function removeRoom(id) {
+      await remove(ref(db, 'rooms/' + id));
+    }
+    function listenRoom(id, callback) {
+      return onValue(ref(db, 'rooms/' + id), snap => {
+        callback(snap.exists() ? snap.val() : null);
+      });
+    }
+    function listenRooms(callback) {
+      return onValue(ref(db, 'rooms'), snap => {
+        callback(snap.exists() ? snap.val() : {});
+      });
+    }
+
+    // ─── CONVERSIÓN ARRAY ↔ OBJETO (BUG CRÍTICO FIREBASE) ────────────────────
+    // Firebase no puede almacenar arrays con null: los convierte a objetos {0:val, 5:val...}
+    // Estas funciones convierten siempre antes de guardar y después de leer.
+    function boardToFirebase(arr) {
+      const obj = {};
+      for (let i = 0; i < 64; i++) {
+        if (arr[i] !== null && arr[i] !== undefined) obj[i] = arr[i];
+      }
+      return obj;
+    }
+    function boardFromFirebase(val) {
+      const arr = new Array(64).fill(null);
+      if (!val) return arr;
+      if (Array.isArray(val)) {
+        for(let i=0; i<val.length; i++) { if(val[i]!==undefined) arr[i]=val[i]; }
+        return arr;
+      }
+      for (const k in val) { arr[parseInt(k)] = val[k]; }
+      return arr;
+    }
+    function lastMoveToFirebase(lm) { return lm ? { 0: lm[0], 1: lm[1] } : null; }
+    function lastMoveFromFirebase(val) { return val ? [val[0], val[1]] : null; }
+    function movesToFirebase(arr) { return arr || []; }
+    function movesFromFirebase(val) {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      const arr = [];
+      for (const k in val) { arr[parseInt(k)] = val[k]; }
+      return arr;
+    }
+
+    // ─── CONSTANTES Y LÓGICA DE AJEDREZ ───────────────────────────────────────
+    const PIECE_UNICODE = {
+      white: { K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘', P: '♙' },
+      black: { K: '♚', Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟' }
+    };
+    const PIECE_NAME = { K:'R', Q:'D', R:'T', B:'A', N:'C', P:'' };
+    const F_NAMES = ['a','b','c','d','e','f','g','h'];
+    const R_NAMES = ['8','7','6','5','4','3','2','1'];
+
+    function row(i) { return Math.floor(i / 8); }
+    function col(i) { return i % 8; }
+    function idx(r, c) { return r * 8 + c; }
+
+    function getInitialBoard() {
+      const b = new Array(64).fill(null);
+      const setupRow = (r, color) => {
+        b[idx(r,0)] = { color, type: 'R' }; b[idx(r,1)] = { color, type: 'N' };
+        b[idx(r,2)] = { color, type: 'B' }; b[idx(r,3)] = { color, type: 'Q' };
+        b[idx(r,4)] = { color, type: 'K' }; b[idx(r,5)] = { color, type: 'B' };
+        b[idx(r,6)] = { color, type: 'N' }; b[idx(r,7)] = { color, type: 'R' };
+      };
+      setupRow(0, 'black'); for(let c=0;c<8;c++) b[idx(1,c)] = { color: 'black', type: 'P' };
+      setupRow(7, 'white'); for(let c=0;c<8;c++) b[idx(6,c)] = { color: 'white', type: 'P' };
+      return b;
+    }
+
+    // ─── VARIABLES DE ESTADO GLOBAL ──────────────────────────────────────────
+    let currentUser = null; 
+    let currentRoom = null; 
+    let gameState   = null; 
+    let selectedSq  = null; 
+    let legalHighlights = [];
+    let isLocalVersus   = false; 
+    let roomListenerUnsubscribe = null;
+    let lobbyRoomsListenerUnsubscribe = null;
+    let isCommitting = false; // Control de flujo para evitar duplicación de eventos en red
+
+    // ─── VISTAS Y NAVEGACIÓN ──────────────────────────────────────────────────
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+      document.getElementById('screen-' + id).classList.remove('hidden');
+      const topNav = document.getElementById('top-nav');
+      if (id === 'login') topNav.classList.add('hidden');
+      else topNav.classList.remove('hidden');
+    }
+
+    function switchTab(type) {
+      document.getElementById('tab-btn-alumno').classList.toggle('active', type==='alumno');
+      document.getElementById('tab-btn-admin').classList.toggle('active', type==='admin');
+      document.getElementById('tab-alumno').style.display = type==='alumno'?'block':'none';
+      document.getElementById('tab-admin').style.display = type==='admin'?'block':'none';
+    }
+
+    // ─── CONTROL DE USUARIOS (CÉDULAS) ────────────────────────────────────────
+    async function loadCIs() {
+      const snap = await get(ref(db, 'authorized_ci'));
+      const list = snap.exists() ? snap.val() : {};
+      const el = document.getElementById('ci-list');
+      if (!el) return;
+      el.innerHTML = '';
+      let keys = Object.keys(list);
+      if(!keys.length) { el.innerHTML = '<div style="padding:15px; opacity:0.4; font-style:italic; text-align:center">No hay ninguna cédula cargada aún.</div>'; return; }
+      keys.forEach(k => {
+        const item = document.createElement('div');
+        item.className = 'ci-item';
+        item.innerHTML = `<span>CI: <strong>${list[k]}</strong></span><button class="ci-del" data-key="${k}">✕ Eliminar</button>`;
+        item.querySelector('.ci-del').onclick = () => removeCI(k);
+        el.appendChild(item);
+      });
+    }
+
+    async function addCI() {
+      const input = document.getElementById('new-ci');
+      const err = document.getElementById('err-ci');
+      const ok = document.getElementById('ok-ci');
+      err.className = 'error-msg'; ok.className = 'success-msg';
+      const clean = input.value.replace(/[^0-9]/g, '');
+      if(clean.length < 6) { err.textContent = 'Por favor, ingresá un formato de cédula válido.'; err.classList.add('show'); return; }
+      const snap = await get(ref(db, 'authorized_ci'));
+      const current = snap.exists() ? Object.values(snap.val()) : [];
+      if(current.includes(clean)) { err.textContent = 'Esta cédula ya se encuentra en la lista habilitada.'; err.classList.add('show'); return; }
+      const newRef = ref(db, 'authorized_ci/' + Date.now());
+      await set(newRef, clean);
+      input.value = ''; ok.textContent = '¡Cédula autorizada con éxito!'; ok.classList.add('show');
+      await loadCIs();
+    }
+
+    async function removeCI(key) {
+      await remove(ref(db, 'authorized_ci/' + key));
+      await loadCIs();
+    }
+
+    // ─── SISTEMA DE ACCESO (AUTENTICACIÓN) ────────────────────────────────────
+    async function loginAlumno() {
+      const ciVal = document.getElementById('ci-input').value.replace(/[^0-9]/g, '');
+      const nameVal = document.getElementById('name-input').value.trim();
+      const err = document.getElementById('err-login');
+      err.className = 'error-msg';
+      if(!ciVal || !nameVal) { err.textContent = 'Completá tu nombre y cédula para poder continuar.'; err.classList.add('show'); return; }
+      const snap = await get(ref(db, 'authorized_ci'));
+      const authorized = snap.exists() ? Object.values(snap.val()) : [];
+      if (!authorized.includes(ciVal)) { err.textContent = 'Tu cédula no figura en la lista autorizada. Solicitale al docente que te habilite.'; err.classList.add('show'); return; }
+      currentUser = { ci: ciVal, name: nameVal, role: 'alumno' };
+      startLobby();
+    }
+
+    function loginAdmin() {
+      const pass = document.getElementById('admin-pass').value;
+      const err = document.getElementById('err-admin');
+      err.className = 'error-msg';
+      if (pass === 'Chuy2026') {
+        currentUser = { role: 'admin', name: 'Docente Coordinador' };
+        document.getElementById('admin-pass').value = '';
+        stopListeners();
+        showScreen('admin');
+        loadCIs();
+      } else {
+        err.textContent = 'Contraseña incorrecta. Verificá los datos.';
+        err.classList.add('show');
+      }
+    }
+
+    function logout() {
+      stopListeners();
+      currentUser = null; currentRoom = null; gameState = null; selectedSq = null; legalHighlights = []; isLocalVersus = false;
+      document.getElementById('ci-input').value = ''; document.getElementById('name-input').value = '';
+      showScreen('login');
+    }
+
+    // ─── MANEJO DE SALAS Y CONEXIÓN EN RED ────────────────────────────────────
+    function startLobby() {
+      stopListeners();
+      showScreen('lobby');
+      document.getElementById('nav-lobby').classList.add('active');
+      document.getElementById('nav-tutorial').classList.remove('active');
+      lobbyRoomsListenerUnsubscribe = listenRooms(rooms => {
+        const el = document.getElementById('room-list');
+        el.innerHTML = '';
+        let activeCount = 0;
+        const keys = Object.keys(rooms);
+        keys.forEach(id => {
+          const r = rooms[id];
+          if(!r.white) return;
+          activeCount += (r.status === 'playing' ? 2 : 1);
+          const item = document.createElement('div');
+          item.className = 'room-item';
+          const isFull = !!(r.white && r.black);
+          item.innerHTML = `<div><div class="room-id">Mesa #${id}</div><div class="room-info">Creador: ${r.white.name} ${isFull?'':'(Esperando rival)'}</div></div><span class="badge ${isFull?'badge-full':'badge-wait'}">${isFull?'Jugando':'Unirse'}</span>`;
+          if (!isFull) {
+            item.onclick = () => joinRoom(id);
+          } else {
+            if((r.white?.ci === currentUser?.ci) || (r.black?.ci === currentUser?.ci)) {
+              item.onclick = () => reconnectRoom(id);
+            } else {
+              item.style.cursor = 'not-allowed'; item.style.opacity = '0.6';
+            }
+          }
+          el.appendChild(item);
+        });
+        if(!keys.length) el.innerHTML = '<div style="padding:30px; opacity:0.4; font-style:italic; text-align:center">No hay mesas creadas en este momento. ¡Crea la primera!</div>';
+        document.getElementById('online-count').textContent = activeCount;
+      });
+    }
+
+    async function createRoom() {
+      const id = String(Math.floor(100000 + Math.random() * 900000));
+      const newRoom = {
+        id, status: 'waiting', turn: 'white',
+        white: { ci: currentUser.ci, name: currentUser.name },
+        black: null,
+        board: boardToFirebase(getInitialBoard()),
+        castling: { whiteK: true, whiteQ: true, blackK: true, blackQ: true },
+        enPassant: null, lastMove: null, moves: [], result: null
+      };
+      isLocalVersus = false;
+      await setRoom(id, newRoom);
+      enterRoomContext(id);
+    }
+
+    async function joinRoom(id) {
+      stopListeners(); // Corrección 1: evitar condición de carrera al unirse a sala
+      const snap = await get(ref(db, 'rooms/' + id));
+      if (!snap.exists()) return;
+      const room = snap.val();
+      // Corrección 4: impedir que la misma cédula ocupe ambos lados de la partida
+      if (room.white?.ci === currentUser.ci || room.black?.ci === currentUser.ci) { reconnectRoom(id); return; }
+      if (room.black) return; 
+      room.black = { ci: currentUser.ci, name: currentUser.name };
+      room.status = 'playing';
+      isLocalVersus = false;
+      await setRoom(id, room);
+      enterRoomContext(id);
+    }
+
+    function reconnectRoom(id) {
+      isLocalVersus = false;
+      enterRoomContext(id);
+    }
+
+    function forceLocalGame() {
+      if(!currentRoom) return;
+      isLocalVersus = true;
+      gameState.status = 'playing';
+      gameState.black  = { ci: currentUser.ci, name: currentUser.name + ' (Espejo)' };
+      renderGame();
+      showScreen('game');
+    }
+
+    function enterRoomContext(id) {
+      currentRoom = id;
+      stopListeners();
+      roomListenerUnsubscribe = listenRoom(id, room => {
+        if (!room) {
+          if (gameState && gameState.status !== 'finished') { alert('La mesa de juego fue disuelta o cancelada.'); }
+          startLobby(); return;
+        }
+        gameState = room;
+        if (room.status === 'waiting') {
+          document.getElementById('waiting-code').textContent = room.id;
+          document.getElementById('slot-white-name').textContent = room.white.name;
+          document.getElementById('slot-white-ci').textContent = 'CI: ' + room.white.ci;
+          document.getElementById('slot-black-name').textContent = room.black ? room.black.name : 'Esperando...';
+          document.getElementById('slot-black-name').className = room.black ? 'slot-name' : 'slot-name pulsing';
+          document.getElementById('slot-black-ci').textContent = room.black ? 'CI: ' + room.black.ci : '';
+          document.getElementById('slot-black').className = 'player-slot' + (room.black?' filled':'');
+          showScreen('waiting');
+        } else if (room.status === 'playing' || room.status === 'finished') {
+          if (isLocalVersus) return; 
+          renderGame();
+          showScreen('game');
+        }
+      });
+    }
+
+    async function leaveRoom() {
+      if (currentRoom) {
+        const id = currentRoom;
+        currentRoom = null; gameState = null; selectedSq = null; legalHighlights = [];
+        const snap = await get(ref(db, 'rooms/' + id));
+        if (snap.exists()) {
+          const room = snap.val();
+          if (room.status === 'waiting' || room.status === 'finished' || (room.white?.ci === currentUser?.ci && !room.black)) { await removeRoom(id); }
+        }
+      }
+      startLobby();
+    }
+
+    function stopListeners() {
+      if (roomListenerUnsubscribe) { roomListenerUnsubscribe(); roomListenerUnsubscribe = null; }
+      if (lobbyRoomsListenerUnsubscribe) { lobbyRoomsListenerUnsubscribe(); lobbyRoomsListenerUnsubscribe = null; }
+    }
+
+    // ─── LOGICA DEL TABLERO, REGLAS Y ASINCRONÍA REESTRUCTURADA ───────────────
+    async function doMove(from, to) {
+      const board = boardFromFirebase(gameState.board);
+      const piece = board[from];
+      if (!piece) return;
+
+      const newCastling = { ...gameState.castling };
+      let newEnPassant = null;
+
+      const moveLabel = PIECE_NAME[piece.type] + R_NAMES[row(from)] + F_NAMES[col(from)] +
+                        (board[to] ? 'x' : '-') + R_NAMES[row(to)] + F_NAMES[col(to)];
+
+      if (piece.type === 'P' && to === gameState.enPassant) {
+        const dir = piece.color === 'white' ? -1 : 1;
+        board[idx(row(to) - dir, col(to))] = null;
+      }
+      if (piece.type === 'P' && Math.abs(row(to) - row(from)) === 2) {
+        const dir = piece.color === 'white' ? -1 : 1;
+        newEnPassant = idx(row(from) + dir, col(from));
+      }
+      
+      if (piece.type === 'K') {
+        const kRow = piece.color === 'white' ? 7 : 0;
+        if (from === idx(kRow, 4) && to === idx(kRow, 6)) { board[idx(kRow, 5)] = board[idx(kRow, 7)]; board[idx(kRow, 7)] = null; }
+        if (from === idx(kRow, 4) && to === idx(kRow, 2)) { board[idx(kRow, 3)] = board[idx(kRow, 0)]; board[idx(kRow, 0)] = null; }
+        newCastling[piece.color + 'K'] = false; newCastling[piece.color + 'Q'] = false;
+      }
+      
+      if (piece.type === 'R') {
+        if (from === idx(7, 0)) newCastling.whiteQ = false;
+        if (from === idx(7, 7)) newCastling.whiteK = false;
+        if (from === idx(0, 0)) newCastling.blackQ = false;
+        if (from === idx(0, 7)) newCastling.blackK = false;
+      }
+
+      board[to] = piece; board[from] = null;
+
+      // CONTROL DE CORONACIÓN TOTALMENTE COMPATIBLE CON INTERFAZ GRÁFICA EN RED
+      if (piece.type === 'P' && (row(to) === 0 || row(to) === 7)) {
+        selectedSq = null; 
+        legalHighlights = [];
+        renderBoard(board, gameState.lastMove, gameState.enPassant, gameState.castling);
+        
+        showPromoModal(piece.color, async (promoType) => {
+          try {
+            board[to] = { color: piece.color, type: promoType };
+            await commitMove(gameState, board, from, to, newEnPassant, newCastling, moveLabel + '=' + PIECE_NAME[promoType]);
+          } catch (error) {
+            console.error("Error al procesar la promoción en red:", error);
+          } finally {
+            isCommitting = false; 
+          }
+        });
+        return;
+      }
+
+      try {
+        selectedSq = null; 
+        legalHighlights = [];
+        await commitMove(gameState, board, from, to, newEnPassant, newCastling, moveLabel);
+      } catch (error) {
+        console.error("Error al enviar el movimiento:", error);
+      } finally {
+        isCommitting = false; 
+      }
+    }
+
+    async function commitMove(room, board, from, to, enPassant, castling, label) {
+      const nextTurn  = room.turn === 'white' ? 'black' : 'white';
+      const prevMoves = movesFromFirebase(room.moves);
+
+      const nextInCheck = isInCheck(board, nextTurn);
+      const nextHasMove = hasAnyLegalMove(board, nextTurn, enPassant, castling);
+      let gameResult = room.result || null;
+      let gameStatus = room.status;
+      if (!nextHasMove) {
+        gameResult = nextInCheck ? (nextTurn === 'white' ? 'blackWins' : 'whiteWins') : 'draw';
+        gameStatus = 'finished';
+      }
+
+      const updated  = {
+        ...room,
+        board:     boardToFirebase(board),
+        turn:      nextTurn,
+        lastMove:  { 0: from, 1: to },
+        enPassant: enPassant !== null ? enPassant : null,
+        castling,
+        moves:     [...prevMoves, { label, color: room.turn }],
+        status:    gameStatus,
+        result:    gameResult
+      };
+
+      if (isLocalVersus) {
+        gameState = updated; renderGame();
+      } else {
+        await setRoom(currentRoom, updated);
+      }
+    }
+
+    function handleSquareClick(i) {
+      if (!gameState) return;
+      if (gameState.status === 'finished') return;
+      if (isCommitting) return; // Detiene interacciones múltiples durante microcortes en la frontera
+
+      const board     = boardFromFirebase(gameState.board);
+      const enPassant = gameState.enPassant !== undefined ? gameState.enPassant : null;
+      const lastMove  = lastMoveFromFirebase(gameState.lastMove);
+      const { turn, castling } = gameState;
+
+      if (!isLocalVersus) {
+        const amIWhite = (gameState.white?.ci === currentUser.ci);
+        const amIBlack = (gameState.black?.ci === currentUser.ci);
+        if (turn === 'white' && !amIWhite) return;
+        if (turn === 'black' && !amIBlack) return;
+      }
+
+      if (selectedSq === null) {
+        if (!board[i] || board[i].color !== turn) return;
+        selectedSq      = i;
+        legalHighlights = getLegalMoves(board, i, enPassant, castling);
+        renderBoard(board, lastMove, enPassant, castling);
+      } else {
+        if (legalHighlights.includes(i)) {
+          isCommitting = true; // Congela la UI inmediatamente
+          doMove(selectedSq, i);
+        } else if (board[i]?.color === turn) {
+          selectedSq      = i;
+          legalHighlights = getLegalMoves(board, i, enPassant, castling);
+          renderBoard(board, lastMove, enPassant, castling);
+        } else {
+          selectedSq = null; legalHighlights = [];
+          renderBoard(board, lastMove, enPassant, castling);
+        }
+      }
+    }
+
+    // ─── RENDERS COMPLETOS DE LA PARTIDA E HISTORIAL ─────────────────────────
+    function renderGame() {
+      if (!gameState) return;
+      const board      = boardFromFirebase(gameState.board);
+      const lastMove   = lastMoveFromFirebase(gameState.lastMove);
+      const moves      = movesFromFirebase(gameState.moves);
+      const enPassant  = gameState.enPassant !== undefined ? gameState.enPassant : null;
+      const { white, black, turn, castling } = gameState;
+      
+      document.getElementById('pname-white').textContent = white?.name || '—';
+      document.getElementById('pci-white').textContent   = 'CI: ' + (white?.ci || '');
+      document.getElementById('pname-black').textContent = black?.name || '—';
+      document.getElementById('pci-black').textContent   = 'CI: ' + (black?.ci || '');
+
+      document.getElementById('pcard-white').classList.toggle('active-player', turn==='white');
+      document.getElementById('pcard-black').classList.toggle('active-player', turn==='black');
+      document.getElementById('turn-dot').className = 'turn-dot ' + turn;
+      document.getElementById('turn-text').textContent = turn==='white'
+        ? (white?.name||'Blancas') + ' (Blancas)'
+        : (black?.name||'Negras')  + ' (Negras)';
+
+      renderBoard(board, lastMove, enPassant, castling);
+      renderMoveLog(moves);
+
+      const inCheck = isInCheck(board, turn);
+      const hasMove = hasAnyLegalMove(board, turn, enPassant, castling);
+      const banner  = document.getElementById('status-banner');
+      banner.className = 'status-banner';
+      if (!hasMove) {
+        if (inCheck) {
+          const winner = turn==='white'?(black?.name||'Negras'):(white?.name||'Blancas');
+          banner.textContent = `♛ ¡Jaque mate! Gana ${winner}`;
+          banner.classList.add('show','checkmate');
+        } else {
+          banner.textContent = '🤝 ¡Tablas por ahogado!';
+          banner.classList.add('show','stalemate');
+        }
+      } else if (inCheck) {
+        banner.textContent = '⚡ ¡Jaque al Rey!';
+        banner.classList.add('show','check');
+      } else {
+        banner.classList.remove('show');
+      }
+    }
+
+    function renderBoard(board, lastMove, enPassant, castling) {
+      const boardEl    = document.getElementById('board');
+      const rankLabels = document.getElementById('rank-labels');
+      const fileLabels = document.getElementById('file-labels');
+
+      rankLabels.innerHTML = [1,2,3,4,5,6,7,8].reverse().map(n=>`<div class="board-label">${n}</div>`).join('');
+      fileLabels.innerHTML = ['a','b','c','d','e','f','g','h'].map(l=>`<div class="board-label">${l}</div>`).join('');
+
+      boardEl.innerHTML = '';
+      const inCheck     = isInCheck(board, gameState.turn);
+      let checkKingIdx  = -1;
+      if (inCheck) checkKingIdx = board.findIndex(p=>p?.color===gameState.turn&&p?.type==='K');
+
+      for (let i=0;i<64;i++){
+        const sq  = document.createElement('div');
+        const r   = row(i), f = col(i);
+        sq.className = 'sq ' + ((r+f)%2===0?'light':'dark');
+        if (i===selectedSq) sq.classList.add('selected');
+        if (lastMove&&(i===lastMove[0]||i===lastMove[1])) sq.classList.add('last-move');
+        if (i===checkKingIdx) sq.classList.add('check-sq');
+
+        if (legalHighlights.includes(i)){
+          const ind = document.createElement('div');
+          ind.className = board[i] ? 'ring' : 'dot';
+          sq.appendChild(ind);
+        }
+        if (board[i]) {
+          sq.textContent = PIECE_UNICODE[board[i].color][board[i].type];
+          sq.classList.add('piece-' + board[i].color);
+        }
+        sq.addEventListener('click', () => handleSquareClick(i));
+        boardEl.appendChild(sq);
+      }
+    }
+
+    // ─── GENERACIÓN DE MOVIMIENTOS VÁLIDOS ────────────────────────────────────
+    function getPseudoMoves(board, from, enPassant, castling) {
+      const piece = board[from]; if(!piece) return [];
+      const moves = []; const r = row(from), c = col(from);
+      const color = piece.color; const enemy = color==='white'?'black':'white';
+      
+      if(piece.type==='P') {
+        const dir = color==='white'?-1:1;
+        const next1 = idx(r+dir, c);
+        if(r+dir>=0 && r+dir<8 && !board[next1]) {
+          moves.push(next1);
+          const startRow = color==='white'?6:1;
+          const next2 = idx(r+dir*2, c);
+          if(r===startRow && !board[next2]) moves.push(next2);
+        }
+        [-1, 1].forEach(dc => {
+          if(c+dc>=0 && c+dc<8 && r+dir>=0 && r+dir<8) {
+            const target = idx(r+dir, c+dc);
+            if(board[target] && board[target].color===enemy) moves.push(target);
+            if(target===enPassant) moves.push(target);
+          }
+        });
+      }
+      else if(piece.type==='N') {
+        const diffs = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+        diffs.forEach(d => {
+          const nr=r+d[0], nc=c+d[1];
+          if(nr>=0&&nr<8&&nc>=0&&nc<8) {
+            const t=idx(nr,nc); if(!board[t]||board[t].color===enemy) moves.push(t);
+          }
+        });
+      }
+      else if(piece.type==='B'||piece.type==='R'||piece.type==='Q') {
+        const dirs = [];
+        if(piece.type==='B'||piece.type==='Q') dirs.push([-1,-1],[-1,1],[1,-1],[1,1]);
+        if(piece.type==='R'||piece.type==='Q') dirs.push([-1,0],[1,0],[0,-1],[0,1]);
+        dirs.forEach(d => {
+          let nr=r+d[0], nc=c+d[1];
+          while(nr>=0&&nr<8&&nc>=0&&nc<8) {
+            const t=idx(nr,nc);
+            if(!board[t]) { moves.push(t); }
+            else { if(board[t].color===enemy) moves.push(t); break; }
+            nr+=d[0]; nc+=d[1];
+          }
+        });
+      }
+      else if(piece.type==='K') {
+        for(let dr=-1;dr<=1;dr++) {
+          for(let dc=-1;dc<=1;dc++) {
+            if(dr===0&&dc===0) continue;
+            const nr=r+dr, nc=c+dc;
+            if(nr>=0&&nr<8&&nc>=0&&nc<8) {
+              const t=idx(nr,nc); if(!board[t]||board[t].color===enemy) moves.push(t);
+            }
+          }
+        }
+        const kRow = color==='white'?7:0;
+        if(from===idx(kRow,4) && !isInCheck(board, color)) {
+          if(castling[color+'K'] && !board[idx(kRow,5)] && !board[idx(kRow,6)]) {
+            if(!isSqAttacked(board, idx(kRow,5), enemy)) moves.push(idx(kRow,6));
+          }
+          if(castling[color+'Q'] && !board[idx(kRow,3)] && !board[idx(kRow,2)] && !board[idx(kRow,1)]) {
+            if(!isSqAttacked(board, idx(kRow,3), enemy)) moves.push(idx(kRow,2));
+          }
+        }
+      }
+      return moves;
+    }
+
+    function isSqAttacked(board, sq, attackerColor) {
+      for(let i=0;i<64;i++) {
+        if(board[i] && board[i].color===attackerColor) {
+          const moves = getPseudoMoves(board, i, null, {whiteK:false,whiteQ:false,blackK:false,blackQ:false});
+          if(moves.includes(sq)) return true;
+        }
+      }
+      return false;
+    }
+
+    function isInCheck(board, color) {
+      const kingIdx = board.findIndex(p => p && p.color===color && p.type==='K');
+      if(kingIdx===-1) return false;
+      return isSqAttacked(board, kingIdx, color==='white'?'black':'white');
+    }
+
+    function getLegalMoves(board, from, enPassant, castling) {
+      const piece = board[from]; if(!piece) return [];
+      const pseudo = getPseudoMoves(board, from, enPassant, castling);
+      const legal = [];
+      pseudo.forEach(to => {
+        const nextBoard = [...board];
+        nextBoard[to] = nextBoard[from]; nextBoard[from] = null;
+        if(piece.type==='P' && to===enPassant) {
+          const dir = piece.color==='white'?-1:1; nextBoard[idx(row(to)-dir, col(to))] = null;
+        }
+        if(!isInCheck(nextBoard, piece.color)) legal.push(to);
+      });
+      return legal;
+    }
+
+    function hasAnyLegalMove(board, color, enPassant, castling) {
+      for(let i=0;i<64;i++) {
+        if(board[i] && board[i].color===color) {
+          if(getLegalMoves(board, i, enPassant, castling).length > 0) return true;
+        }
+      }
+      return false;
+    }
+
+    function renderMoveLog(moves) {
+      const log = document.getElementById('move-log');
+      if (!moves?.length) { log.innerHTML = '<span style="opacity:0.4;font-style:italic">Sin movimientos aún.</span>'; return; }
+      let html = '';
+      for (let i=0;i<moves.length;i+=2) {
+        const n = Math.floor(i/2)+1;
+        html += `<div class="move-pair"><span class="move-num">${n}.</span><span>${moves[i].label}</span>${moves[i+1]?`<span>${moves[i+1].label}</span>`:''}</div>`;
+      }
+      log.innerHTML = html;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function showPromoModal(color, callback) {
+      const modal  = document.getElementById('promo-modal');
+      const pieces = document.getElementById('promo-pieces');
+      pieces.innerHTML = ['Q','R','B','N'].map(t =>
+        `<div class="promo-piece" onclick="window._selectPromo('${t}')">${PIECE_UNICODE[color][t]}</div>`
+      ).join('');
+      modal.classList.add('show');
+      window._promoCallback = callback;
+    }
+    window._selectPromo = function(type) {
+      document.getElementById('promo-modal').classList.remove('show');
+      if (window._promoCallback) window._promoCallback(type);
+    };
+
+    function showTutorial() {
+      stopListeners();
+      showScreen('tutorial');
+      document.getElementById('nav-tutorial').classList.add('active');
+      document.getElementById('nav-lobby').classList.remove('active');
+    }
+
+    // ─── EXPONER FUNCIONES AL HTML (onclick) ──────────────────────────────────
+    window.switchTab    = switchTab;
+    window.loginAlumno  = loginAlumno;
+    window.loginAdmin   = loginAdmin;
+    window.logout       = logout;
+    window.addCI        = addCI;
+    window.createRoom   = createRoom;
+    window.leaveRoom    = leaveRoom;
+    window.forceLocalGame = forceLocalGame;
+    window.showTutorial = showTutorial;
+
+    // ─── ARRANQUE ─────────────────────────────────────────────────────────────
+    await loadCIs();
+    showScreen('login');
+
+  </script>
+</body>
+</html>

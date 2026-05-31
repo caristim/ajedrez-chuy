@@ -897,8 +897,14 @@
       enterRoomContext(id);
     }
 
-    function forceLocalGame() {
+    async function forceLocalGame() {
       if(!currentRoom) return;
+      // Si gameState aún no cargó desde Firebase, lo leemos directamente
+      if (!gameState) {
+        const snap = await get(ref(db, 'rooms/' + currentRoom));
+        if (!snap.exists()) return;
+        gameState = snap.val();
+      }
       isLocalVersus = true;
       gameState.status = 'playing';
       gameState.black  = { ci: currentUser.ci, name: currentUser.name + ' (Espejo)' };

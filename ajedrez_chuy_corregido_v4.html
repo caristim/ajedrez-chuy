@@ -908,8 +908,8 @@
       isLocalVersus = true;
       gameState.status = 'playing';
       gameState.black  = { ci: currentUser.ci, name: currentUser.name + ' (Espejo)' };
-      // Guardar en Firebase para que el listener no sobreescriba el estado local
-      await setRoom(currentRoom, gameState);
+      // Renderizar y mostrar el tablero directamente sin pasar por Firebase
+      // El listener de Firebase ignora esto porque isLocalVersus=true (línea if(isLocalVersus) return)
       renderGame();
       showScreen('game');
     }
@@ -922,7 +922,8 @@
           if (gameState && gameState.status !== 'finished') { alert('La mesa de juego fue disuelta o cancelada.'); }
           startLobby(); return;
         }
-        gameState = room;
+        // No sobreescribir el gameState local si estamos en modo local (Jugar contra mí mismo)
+        if (!isLocalVersus) gameState = room;
         if (room.status === 'waiting') {
           document.getElementById('waiting-code').textContent = room.id;
           document.getElementById('slot-white-name').textContent = room.white.name;
@@ -1054,6 +1055,11 @@
         gameState = updated; renderGame();
       } else {
         await setRoom(currentRoom, updated);
+        // Si la partida terminó, borrar la sala automáticamente después de 5 segundos
+        if (gameStatus === 'finished' && currentRoom) {
+          const roomIdToDelete = currentRoom;
+          setTimeout(async () => { await removeRoom(roomIdToDelete); }, 5000);
+        }
       }
     }
 
@@ -1175,7 +1181,8 @@
     }
 
     // ─── GENERACIÓN DE MOVIMIENTOS VÁLIDOS ────────────────────────────────────
-    function getPseudoMoves(board, from, enPassant, castling) {
+    // skipCastling=true corta la recursión infinita: Rey→isInCheck→isSqAttacked→Rey→...
+    function getPseudoMoves(board, from, enPassant, castling, skipCastling=false) {
       const piece = board[from]; if(!piece) return [];
       const moves = []; const r = row(from), c = col(from);
       const color = piece.color; const enemy = color==='white'?'black':'white';
@@ -1230,13 +1237,16 @@
             }
           }
         }
-        const kRow = color==='white'?7:0;
-        if(from===idx(kRow,4) && !isInCheck(board, color)) {
-          if(castling[color+'K'] && !board[idx(kRow,5)] && !board[idx(kRow,6)]) {
-            if(!isSqAttacked(board, idx(kRow,5), enemy)) moves.push(idx(kRow,6));
-          }
-          if(castling[color+'Q'] && !board[idx(kRow,3)] && !board[idx(kRow,2)] && !board[idx(kRow,1)]) {
-            if(!isSqAttacked(board, idx(kRow,3), enemy)) moves.push(idx(kRow,2));
+        // skipCastling evita el ciclo infinito cuando se calcula si una casilla está atacada
+        if(!skipCastling) {
+          const kRow = color==='white'?7:0;
+          if(from===idx(kRow,4) && !isInCheck(board, color)) {
+            if(castling[color+'K'] && !board[idx(kRow,5)] && !board[idx(kRow,6)]) {
+              if(!isSqAttacked(board, idx(kRow,5), enemy)) moves.push(idx(kRow,6));
+            }
+            if(castling[color+'Q'] && !board[idx(kRow,3)] && !board[idx(kRow,2)] && !board[idx(kRow,1)]) {
+              if(!isSqAttacked(board, idx(kRow,3), enemy)) moves.push(idx(kRow,2));
+            }
           }
         }
       }
@@ -1246,7 +1256,8 @@
     function isSqAttacked(board, sq, attackerColor) {
       for(let i=0;i<64;i++) {
         if(board[i] && board[i].color===attackerColor) {
-          const moves = getPseudoMoves(board, i, null, {whiteK:false,whiteQ:false,blackK:false,blackQ:false});
+          // skipCastling=true para cortar la recursión infinita
+          const moves = getPseudoMoves(board, i, null, {whiteK:false,whiteQ:false,blackK:false,blackQ:false}, true);
           if(moves.includes(sq)) return true;
         }
       }

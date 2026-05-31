@@ -908,6 +908,8 @@
       isLocalVersus = true;
       gameState.status = 'playing';
       gameState.black  = { ci: currentUser.ci, name: currentUser.name + ' (Espejo)' };
+      // Guardar en Firebase para que el listener no sobreescriba el estado local
+      await setRoom(currentRoom, gameState);
       renderGame();
       showScreen('game');
     }

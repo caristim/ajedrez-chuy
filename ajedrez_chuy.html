@@ -419,9 +419,20 @@
         
         <div id="room-list" class="room-list"></div>
 
-        <button class="btn" onclick="createRoom()" style="background: linear-gradient(to bottom, #2d5a27, #1e3d1a); border-color: #4caf50;">
-          ➕ Crear una Nueva Mesa de Partida
-        </button>
+        <div style="display:flex; gap:10px; margin-top:10px; align-items:center; flex-wrap:wrap;">
+          <button class="btn" onclick="createRoom()" style="background: linear-gradient(to bottom, #2d5a27, #1e3d1a); border-color: #4caf50; flex:1; min-width:200px;">
+            ➕ Crear una Nueva Mesa de Partida
+          </button>
+          <div style="display:flex; gap:8px; flex:1; min-width:200px;">
+            <input type="text" id="join-code-input" placeholder="Código de 6 dígitos" maxlength="6"
+              style="flex:1; padding:10px; background:#1c130a; border:1px solid var(--gold); color:var(--cream); border-radius:4px; font-family:var(--font-serif); font-size:1rem;"
+              onkeydown="if(event.key==='Enter') joinByCode()">
+            <button class="btn" onclick="joinByCode()" style="width:auto; padding:10px 16px;">
+              🔗 Unirse
+            </button>
+          </div>
+        </div>
+        <div id="err-join" style="color:#c0392b; font-size:0.9rem; margin-top:6px; min-height:1.2em;"></div>
       </div>
     </div>
 
@@ -898,6 +909,18 @@
       enterRoomContext(id);
     }
 
+    async function joinByCode() {
+      const code = document.getElementById('join-code-input').value.trim();
+      const err  = document.getElementById('err-join');
+      err.textContent = '';
+      if (!/^[0-9]{6}$/.test(code)) { err.textContent = 'Ingresá exactamente 6 dígitos.'; return; }
+      const snap = await get(ref(db, 'rooms/' + code));
+      if (!snap.exists()) { err.textContent = 'No existe ninguna mesa con ese código.'; return; }
+      const room = snap.val();
+      if (room.black) { err.textContent = 'Esa mesa ya tiene dos jugadores.'; return; }
+      joinRoom(code);
+    }
+
     async function joinRoom(id) {
       stopListeners(); // Corrección 1: evitar condición de carrera al unirse a sala
       const snap = await get(ref(db, 'rooms/' + id));
@@ -1365,6 +1388,7 @@
     window.leaveRoom    = leaveRoom;
     window.forceLocalGame = forceLocalGame;
     window.deleteAllRooms = deleteAllRooms;
+    window.joinByCode = joinByCode;
     window.showTutorial = showTutorial;
 
     // ─── ARRANQUE ─────────────────────────────────────────────────────────────

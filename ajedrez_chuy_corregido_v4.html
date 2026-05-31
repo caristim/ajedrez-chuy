@@ -535,6 +535,14 @@
             <div id="ci-list" class="ci-list"></div>
           </div>
         </div>
+        <div style="margin-top:20px; padding-top:15px; border-top:1px solid rgba(201,168,76,0.15);">
+          <label style="font-size:0.9rem">Gestión de Partidas</label>
+          <p style="font-size:0.85rem; opacity:0.7; margin:8px 0 12px">Borrá todas las mesas almacenadas en Firebase (partidas terminadas, abandonadas o colgadas).</p>
+          <button class="btn logout-btn" onclick="deleteAllRooms()" style="font-size:0.9rem; padding:9px 18px;">
+            🗑 Borrar Todas las Partidas
+          </button>
+          <div id="ok-rooms" class="success-msg"></div>
+        </div>
       </div>
     </div>
 
@@ -653,6 +661,19 @@
     async function setRoom(id, data) {
       await set(ref(db, 'rooms/' + id), data);
     }
+    async function deleteAllRooms() {
+      if (!confirm('¿Confirmás que querés borrar TODAS las partidas almacenadas?')) return;
+      const snap = await get(ref(db, 'rooms'));
+      if (snap.exists()) {
+        const rooms = snap.val();
+        const ids = Object.keys(rooms);
+        await Promise.all(ids.map(id => remove(ref(db, 'rooms/' + id))));
+      }
+      const ok = document.getElementById('ok-rooms');
+      ok.textContent = '✔ Todas las partidas fueron borradas.';
+      setTimeout(() => { ok.textContent = ''; }, 3000);
+    }
+
     async function removeRoom(id) {
       await remove(ref(db, 'rooms/' + id));
     }
@@ -898,20 +919,21 @@
     }
 
     async function forceLocalGame() {
-      if(!currentRoom) return;
-      // Si gameState aún no cargó desde Firebase, lo leemos directamente
+      if (!currentRoom) return;
       if (!gameState) {
         const snap = await get(ref(db, 'rooms/' + currentRoom));
         if (!snap.exists()) return;
         gameState = snap.val();
       }
+      // Detener listener ANTES de activar modo local para que Firebase no interfiera
+      stopListeners();
       isLocalVersus = true;
       gameState.status = 'playing';
       gameState.black  = { ci: currentUser.ci, name: currentUser.name + ' (Espejo)' };
-      // Renderizar y mostrar el tablero directamente sin pasar por Firebase
-      // El listener de Firebase ignora esto porque isLocalVersus=true (línea if(isLocalVersus) return)
       renderGame();
       showScreen('game');
+      // Borrar la sala de Firebase en segundo plano (ya no la necesitamos)
+      if (currentRoom) removeRoom(currentRoom);
     }
 
     function enterRoomContext(id) {
@@ -919,11 +941,13 @@
       stopListeners();
       roomListenerUnsubscribe = listenRoom(id, room => {
         if (!room) {
+          // Si la sala desapareció pero estamos en modo local, ignorar
+          if (isLocalVersus) return;
           if (gameState && gameState.status !== 'finished') { alert('La mesa de juego fue disuelta o cancelada.'); }
           startLobby(); return;
         }
-        // No sobreescribir el gameState local si estamos en modo local (Jugar contra mí mismo)
-        if (!isLocalVersus) gameState = room;
+        if (isLocalVersus) return;
+        gameState = room;
         if (room.status === 'waiting') {
           document.getElementById('waiting-code').textContent = room.id;
           document.getElementById('slot-white-name').textContent = room.white.name;
@@ -934,7 +958,6 @@
           document.getElementById('slot-black').className = 'player-slot' + (room.black?' filled':'');
           showScreen('waiting');
         } else if (room.status === 'playing' || room.status === 'finished') {
-          if (isLocalVersus) return; 
           renderGame();
           showScreen('game');
         }
@@ -1053,9 +1076,14 @@
 
       if (isLocalVersus) {
         gameState = updated; renderGame();
+        // En modo local, borrar la sala de Firebase al terminar la partida
+        if (gameStatus === 'finished' && currentRoom) {
+          const roomIdToDelete = currentRoom;
+          setTimeout(async () => { await removeRoom(roomIdToDelete); }, 3000);
+        }
       } else {
         await setRoom(currentRoom, updated);
-        // Si la partida terminó, borrar la sala automáticamente después de 5 segundos
+        // En partida en red, borrar la sala al terminar
         if (gameStatus === 'finished' && currentRoom) {
           const roomIdToDelete = currentRoom;
           setTimeout(async () => { await removeRoom(roomIdToDelete); }, 5000);
@@ -1336,6 +1364,7 @@
     window.createRoom   = createRoom;
     window.leaveRoom    = leaveRoom;
     window.forceLocalGame = forceLocalGame;
+    window.deleteAllRooms = deleteAllRooms;
     window.showTutorial = showTutorial;
 
     // ─── ARRANQUE ─────────────────────────────────────────────────────────────

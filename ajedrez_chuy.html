@@ -893,7 +893,7 @@
     function registerPresence() {
       if (!currentUser || currentUser.role === 'admin') return;
       presenceRef = ref(db, 'presence/' + currentUser.ci);
-      set(presenceRef, { name: currentUser.name, ci: currentUser.ci, ts: Date.now() });
+      set(presenceRef, { name: currentUser.name, ts: Date.now() });
       // Borrar presencia automáticamente si se cierra el navegador o se pierde conexión
       onDisconnect(presenceRef).remove();
     }
@@ -963,7 +963,7 @@
     function updateOnlinePlayersList(presence) {
       const list = document.getElementById('online-players-list');
       if (!list) return;
-      const others = Object.values(presence).filter(p => p.ci !== currentUser.ci);
+      const others = Object.values(presence).filter(p => p.name !== currentUser.name);
       if (!others.length) {
         list.innerHTML = '<span style="opacity:0.4; font-style:italic; font-size:0.85rem;">Ningún compañero conectado en este momento</span>';
         return;
@@ -1099,10 +1099,10 @@
         if (room.status === 'waiting') {
           document.getElementById('waiting-code').textContent = room.id;
           document.getElementById('slot-white-name').textContent = room.white.name;
-          document.getElementById('slot-white-ci').textContent = 'CI: ' + room.white.ci;
+          document.getElementById('slot-white-ci').textContent = '';
           document.getElementById('slot-black-name').textContent = room.black ? room.black.name : 'Esperando...';
           document.getElementById('slot-black-name').className = room.black ? 'slot-name' : 'slot-name pulsing';
-          document.getElementById('slot-black-ci').textContent = room.black ? 'CI: ' + room.black.ci : '';
+          document.getElementById('slot-black-ci').textContent = '';
           document.getElementById('slot-black').className = 'player-slot' + (room.black?' filled':'');
           showScreen('waiting');
         } else if (room.status === 'playing' || room.status === 'finished') {
@@ -1353,9 +1353,9 @@
       const { white, black, turn, castling } = gameState;
       
       document.getElementById('pname-white').textContent = white?.name || '—';
-      document.getElementById('pci-white').textContent   = 'CI: ' + (white?.ci || '');
+      document.getElementById('pci-white').textContent   = '';
       document.getElementById('pname-black').textContent = black?.name || '—';
-      document.getElementById('pci-black').textContent   = 'CI: ' + (black?.ci || '');
+      document.getElementById('pci-black').textContent   = '';
 
       document.getElementById('pcard-white').classList.toggle('active-player', turn==='white');
       document.getElementById('pcard-black').classList.toggle('active-player', turn==='black');

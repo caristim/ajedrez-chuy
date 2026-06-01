@@ -233,6 +233,9 @@
   .pcard-name { font-weight: 600; font-size: 1.05rem; }
   .pcard-ci { font-size: 0.8rem; opacity: 0.5; }
   .pcard-side { font-family: var(--font-header); font-size: 0.75rem; font-weight: 600; padding: 2px 6px; border-radius: 3px; }
+  .timer-box { font-family: var(--font-header); font-size: 1.4rem; font-weight: 700; letter-spacing: 2px; padding: 4px 10px; border-radius: 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(201,168,76,0.2); color: var(--gold); transition: color 0.3s, border-color 0.3s; }
+  .timer-box.timer-urgent { color: #e74c3c; border-color: #e74c3c; animation: pulse-red 0.8s infinite; }
+  @keyframes pulse-red { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
   .side-white { background: var(--cream); color: var(--dark); }
   .side-black { background: var(--dark); color: var(--cream); border: 1px solid rgba(255,255,255,0.2); }
 
@@ -492,7 +495,10 @@
               <span id="pname-black" class="pcard-name">Cargando...</span>
               <span id="pci-black" class="pcard-ci">CI: --</span>
             </div>
-            <span class="pcard-side side-black">Negras</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span id="timer-black" class="timer-box">3:00</span>
+              <span class="pcard-side side-black">Negras</span>
+            </div>
           </div>
 
           <div class="board-outer">
@@ -506,7 +512,10 @@
               <span id="pname-white" class="pcard-name">Cargando...</span>
               <span id="pci-white" class="pcard-ci">CI: --</span>
             </div>
-            <span class="pcard-side side-white">Blancas</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span id="timer-white" class="timer-box">3:00</span>
+              <span class="pcard-side side-white">Blancas</span>
+            </div>
           </div>
         </div>
 
@@ -1117,12 +1126,78 @@
     }
 
     function stopListeners() {
+      stopTimer();
       if (roomListenerUnsubscribe) { roomListenerUnsubscribe(); roomListenerUnsubscribe = null; }
       if (lobbyRoomsListenerUnsubscribe) { lobbyRoomsListenerUnsubscribe(); lobbyRoomsListenerUnsubscribe = null; }
       if (presenceListenerUnsubscribe) { presenceListenerUnsubscribe(); presenceListenerUnsubscribe = null; }
     }
 
     // ─── LOGICA DEL TABLERO, REGLAS Y ASINCRONÍA REESTRUCTURADA ───────────────
+    // ─── CRONÓMETRO POR JUGADA ────────────────────────────────────────────────
+    const TURN_SECONDS = 180; // 3 minutos por jugada
+    let timerInterval = null;
+    let timerSecondsLeft = TURN_SECONDS;
+
+    function formatTime(s) {
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return m + ':' + String(sec).padStart(2, '0');
+    }
+
+    function updateTimerDisplay(color, seconds) {
+      const el = document.getElementById('timer-' + color);
+      if (!el) return;
+      el.textContent = formatTime(seconds);
+      el.classList.toggle('timer-urgent', seconds <= 30);
+    }
+
+    function startTimer(turn) {
+      clearInterval(timerInterval);
+      timerSecondsLeft = TURN_SECONDS;
+      // Resetear ambos displays
+      updateTimerDisplay('white', turn === 'white' ? TURN_SECONDS : TURN_SECONDS);
+      updateTimerDisplay('black', turn === 'black' ? TURN_SECONDS : TURN_SECONDS);
+      // Marcar el activo
+      updateTimerDisplay(turn, TURN_SECONDS);
+      const inactive = turn === 'white' ? 'black' : 'white';
+      const inactiveEl = document.getElementById('timer-' + inactive);
+      if (inactiveEl) { inactiveEl.textContent = formatTime(TURN_SECONDS); inactiveEl.classList.remove('timer-urgent'); }
+
+      timerInterval = setInterval(() => {
+        timerSecondsLeft--;
+        updateTimerDisplay(turn, timerSecondsLeft);
+        if (timerSecondsLeft <= 0) {
+          clearInterval(timerInterval);
+          // Tiempo agotado: pasar turno al rival
+          handleTimeOut(turn);
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+
+    async function handleTimeOut(expiredTurn) {
+      if (!gameState || gameState.status === 'finished') return;
+      const nextTurn = expiredTurn === 'white' ? 'black' : 'white';
+      const expiredName = expiredTurn === 'white'
+        ? (gameState.white?.name || 'Blancas')
+        : (gameState.black?.name || 'Negras');
+      // Mostrar aviso brevemente
+      const banner = document.getElementById('status-banner');
+      if (banner) { banner.textContent = '⏰ ' + expiredName + ' agotó el tiempo. Turno pasado.'; banner.className = 'status-banner show'; }
+      if (isLocalVersus) {
+        gameState.turn = nextTurn;
+        renderGame();
+        startTimer(nextTurn);
+      } else {
+        const updated = Object.assign({}, gameState, { turn: nextTurn });
+        await setRoom(currentRoom, updated);
+      }
+    }
+
     async function doMove(from, to) {
       const board = boardFromFirebase(gameState.board);
       const piece = board[from];
@@ -1297,6 +1372,10 @@
       const banner  = document.getElementById('status-banner');
       banner.className = 'status-banner';
       if (!hasMove) {
+        stopTimer();
+        // Resetear displays al terminar
+        updateTimerDisplay('white', TURN_SECONDS);
+        updateTimerDisplay('black', TURN_SECONDS);
         if (inCheck) {
           const winner = turn==='white'?(black?.name||'Negras'):(white?.name||'Blancas');
           banner.textContent = `♛ ¡Jaque mate! Gana ${winner}`;
@@ -1306,9 +1385,11 @@
           banner.classList.add('show','stalemate');
         }
       } else if (inCheck) {
+        startTimer(turn);
         banner.textContent = '⚡ ¡Jaque al Rey!';
         banner.classList.add('show','check');
       } else {
+        startTimer(turn);
         banner.classList.remove('show');
       }
     }

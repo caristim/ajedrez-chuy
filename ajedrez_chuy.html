@@ -233,6 +233,13 @@
   .pcard-name { font-weight: 600; font-size: 1.05rem; }
   .pcard-ci { font-size: 0.8rem; opacity: 0.5; }
   .pcard-side { font-family: var(--font-header); font-size: 0.75rem; font-weight: 600; padding: 2px 6px; border-radius: 3px; }
+  .ranking-table { width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:10px; }
+  .ranking-table th { text-align:left; padding:6px 10px; font-family:var(--font-header); font-size:0.75rem; letter-spacing:1px; opacity:0.6; border-bottom:1px solid rgba(201,168,76,0.2); }
+  .ranking-table td { padding:7px 10px; border-bottom:1px solid rgba(255,255,255,0.05); }
+  .ranking-table tr:first-child td { color:var(--gold); font-weight:700; }
+  .rank-pos { font-family:var(--font-header); font-weight:700; color:var(--gold); width:28px; }
+  .rank-medal { font-size:1.1rem; }
+  .ranking-empty { opacity:0.4; font-style:italic; font-size:0.85rem; padding:16px 0; text-align:center; }
   .timer-box { font-family: var(--font-header); font-size: 1.4rem; font-weight: 700; letter-spacing: 2px; padding: 4px 10px; border-radius: 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(201,168,76,0.2); color: var(--gold); transition: color 0.3s, border-color 0.3s; }
   .timer-box.timer-urgent { color: #e74c3c; border-color: #e74c3c; animation: pulse-red 0.8s infinite; }
   @keyframes pulse-red { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
@@ -427,6 +434,11 @@
         </div>
         <div id="room-list" class="room-list"></div>
 
+        <div style="margin-top:20px; padding-top:15px; border-top:1px solid rgba(201,168,76,0.15);">
+          <div class="lobby-title" style="font-size:1rem; margin-bottom:8px;">🏆 Ranking de Jugadores</div>
+          <div id="lobby-ranking"><div class="ranking-empty">Aún no hay partidas registradas.</div></div>
+        </div>
+
         <div style="display:flex; gap:10px; margin-top:10px; align-items:center; flex-wrap:wrap;">
           <button class="btn" onclick="createRoom()" style="background: linear-gradient(to bottom, #2d5a27, #1e3d1a); border-color: #4caf50; flex:1; min-width:200px;">
             ➕ Crear una Nueva Mesa de Partida
@@ -568,6 +580,15 @@
             <div id="ci-list" class="ci-list"></div>
           </div>
         </div>
+        <div style="margin-top:20px; padding-top:15px; border-top:1px solid rgba(201,168,76,0.15);">
+          <label style="font-size:0.9rem">🏆 Ranking de Jugadores</label>
+          <div id="admin-ranking" style="margin-top:10px;"><div class="ranking-empty">Aún no hay partidas registradas.</div></div>
+          <button class="btn logout-btn" onclick="clearRanking()" style="font-size:0.85rem; padding:7px 14px; margin-top:12px;">
+            🗑 Reiniciar Ranking
+          </button>
+          <div id="ok-ranking" class="success-msg"></div>
+        </div>
+
         <div style="margin-top:20px; padding-top:15px; border-top:1px solid rgba(201,168,76,0.15);">
           <label style="font-size:0.9rem">Gestión de Partidas</label>
           <p style="font-size:0.85rem; opacity:0.7; margin:8px 0 12px">Borrá todas las mesas almacenadas en Firebase (partidas terminadas, abandonadas o colgadas).</p>
@@ -868,6 +889,7 @@
         currentUser = { role: 'admin', name: 'Docente Coordinador' };
         document.getElementById('admin-pass').value = '';
         stopListeners();
+        startRankingListener();
         showScreen('admin');
         loadCIs();
       } else {
@@ -882,6 +904,80 @@
       currentUser = null; currentRoom = null; gameState = null; selectedSq = null; legalHighlights = []; isLocalVersus = false;
       document.getElementById('ci-input').value = ''; document.getElementById('name-input').value = '';
       showScreen('login');
+    }
+
+    // ─── RANKING ───────────────────────────────────────────────────────────────
+    function rankingHTML(data) {
+      const players = Object.values(data).sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+      if (!players.length) return '<div class="ranking-empty">Aún no hay partidas registradas.</div>';
+      const medals = ['🥇','🥈','🥉'];
+      return `<table class="ranking-table">
+        <thead><tr><th>#</th><th>Jugador</th><th>V</th><th>D</th><th>J</th></tr></thead>
+        <tbody>${players.map((p, i) => `
+          <tr>
+            <td class="rank-pos">${medals[i] || (i+1)}</td>
+            <td>${p.name}</td>
+            <td style="color:#4caf50; font-weight:600">${p.wins}</td>
+            <td style="color:#e74c3c">${p.losses}</td>
+            <td style="opacity:0.7">${p.played}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+    }
+
+    function listenRanking(callback) {
+      return onValue(ref(db, 'ranking'), snap => {
+        callback(snap.exists() ? snap.val() : {});
+      });
+    }
+
+    let rankingListenerUnsubscribe = null;
+
+    function startRankingListener() {
+      if (rankingListenerUnsubscribe) { rankingListenerUnsubscribe(); rankingListenerUnsubscribe = null; }
+      rankingListenerUnsubscribe = listenRanking(data => {
+        const html = rankingHTML(data);
+        const lobbyEl = document.getElementById('lobby-ranking');
+        const adminEl = document.getElementById('admin-ranking');
+        if (lobbyEl) lobbyEl.innerHTML = html;
+        if (adminEl) adminEl.innerHTML = html;
+      });
+    }
+
+    async function updateRanking(result) {
+      // result: 'whiteWins' | 'blackWins' | 'draw'
+      // Solo contar en partidas en red (no en modo local contra uno mismo)
+      if (isLocalVersus || !gameState) return;
+      const white = gameState.white;
+      const black = gameState.black;
+      if (!white || !black) return;
+
+      const snap = await get(ref(db, 'ranking'));
+      const ranking = snap.exists() ? snap.val() : {};
+
+      function getOrCreate(ci, name) {
+        if (!ranking[ci]) ranking[ci] = { name, wins: 0, losses: 0, played: 0 };
+        return ranking[ci];
+      }
+
+      const w = getOrCreate(white.ci, white.name);
+      const b = getOrCreate(black.ci, black.name);
+
+      w.played++; b.played++;
+      if (result === 'whiteWins')      { w.wins++; b.losses++; }
+      else if (result === 'blackWins') { b.wins++; w.losses++; }
+      // draw: solo suma partida jugada, sin victorias ni derrotas
+
+      await set(ref(db, 'ranking/' + white.ci), w);
+      await set(ref(db, 'ranking/' + black.ci), b);
+    }
+
+    async function clearRanking() {
+      if (!confirm('¿Confirmás que querés reiniciar el ranking completo?')) return;
+      await remove(ref(db, 'ranking'));
+      const ok = document.getElementById('ok-ranking');
+      ok.textContent = '✔ Ranking reiniciado.';
+      setTimeout(() => { ok.textContent = ''; }, 3000);
     }
 
     // ─── PRESENCIA E INVITACIONES ──────────────────────────────────────────────
@@ -983,6 +1079,7 @@
     // ─── MANEJO DE SALAS Y CONEXIÓN EN RED ────────────────────────────────────
     function startLobby() {
       stopListeners();
+      startRankingListener();
       showScreen('lobby');
       document.getElementById('nav-lobby').classList.add('active');
       document.getElementById('nav-tutorial').classList.remove('active');
@@ -1130,6 +1227,7 @@
       if (roomListenerUnsubscribe) { roomListenerUnsubscribe(); roomListenerUnsubscribe = null; }
       if (lobbyRoomsListenerUnsubscribe) { lobbyRoomsListenerUnsubscribe(); lobbyRoomsListenerUnsubscribe = null; }
       if (presenceListenerUnsubscribe) { presenceListenerUnsubscribe(); presenceListenerUnsubscribe = null; }
+      if (rankingListenerUnsubscribe) { rankingListenerUnsubscribe(); rankingListenerUnsubscribe = null; }
     }
 
     // ─── LOGICA DEL TABLERO, REGLAS Y ASINCRONÍA REESTRUCTURADA ───────────────
@@ -1291,14 +1389,16 @@
 
       if (isLocalVersus) {
         gameState = updated; renderGame();
-        // En modo local, borrar la sala de Firebase al terminar la partida
         if (gameStatus === 'finished' && currentRoom) {
           const roomIdToDelete = currentRoom;
           setTimeout(async () => { await removeRoom(roomIdToDelete); }, 3000);
         }
       } else {
+        // Actualizar ranking antes de guardar si la partida terminó
+        if (gameStatus === 'finished' && gameResult) {
+          await updateRanking(gameResult);
+        }
         await setRoom(currentRoom, updated);
-        // En partida en red, borrar la sala al terminar
         if (gameStatus === 'finished' && currentRoom) {
           const roomIdToDelete = currentRoom;
           setTimeout(async () => { await removeRoom(roomIdToDelete); }, 5000);
@@ -1589,6 +1689,7 @@
     window.joinByCode = joinByCode;
     window.acceptInvite = acceptInvite;
     window.declineInvite = declineInvite;
+    window.clearRanking = clearRanking;
     window.showTutorial = showTutorial;
 
     // ─── ARRANQUE ─────────────────────────────────────────────────────────────

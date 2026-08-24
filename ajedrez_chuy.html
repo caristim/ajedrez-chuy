@@ -677,7 +677,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase, ref, set, get, onValue, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    import { getDatabase, ref, set, get, onValue, remove, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
     // ─── CONFIGURACIÓN FIREBASE ───────────────────────────────────────────────
     const firebaseConfig = {
@@ -989,7 +989,10 @@
     function registerPresence() {
       if (!currentUser || currentUser.role === 'admin') return;
       presenceRef = ref(db, 'presence/' + currentUser.ci);
-      set(presenceRef, { name: currentUser.name, ts: Date.now() });
+      // Corrección: se debe guardar también la cédula (ci) del jugador presente,
+      // porque el botón "Invitar a..." la necesita para enviar la invitación
+      // al destinatario correcto (antes se enviaba a "invites/undefined").
+      set(presenceRef, { ci: currentUser.ci, name: currentUser.name, ts: Date.now() });
       // Borrar presencia automáticamente si se cierra el navegador o se pierde conexión
       onDisconnect(presenceRef).remove();
     }
@@ -1143,15 +1146,34 @@
       stopListeners(); // Corrección 1: evitar condición de carrera al unirse a sala
       const snap = await get(ref(db, 'rooms/' + id));
       if (!snap.exists()) return;
-      const room = snap.val();
+      const preRoom = snap.val();
       // Corrección 4: impedir que la misma cédula ocupe ambos lados de la partida
-      if (room.white?.ci === currentUser.ci || room.black?.ci === currentUser.ci) { reconnectRoom(id); return; }
-      if (room.black) return; 
-      room.black = { ci: currentUser.ci, name: currentUser.name };
-      room.status = 'playing';
+      if (preRoom.white?.ci === currentUser.ci || preRoom.black?.ci === currentUser.ci) { reconnectRoom(id); return; }
       isLocalVersus = false;
-      await setRoom(id, room);
-      enterRoomContext(id);
+
+      // Corrección 5: usar una transacción atómica de Firebase en vez de
+      // "leer y después escribir". Antes, si dos alumnos hacían clic en
+      // "Unirse" a la misma mesa casi al mismo tiempo, el segundo podía
+      // pisar el lugar de negras del primero. runTransaction reintenta
+      // automáticamente si detecta que el dato cambió mientras tanto, así
+      // que solo uno de los dos puede quedarse con el lugar de negras.
+      const txResult = await runTransaction(ref(db, 'rooms/' + id), (room) => {
+        if (!room) return room; // la mesa fue borrada mientras tanto: abortar
+        if (room.black) return; // ya la ocupó otro alumno: abortar la transacción
+        room.black = { ci: currentUser.ci, name: currentUser.name };
+        room.status = 'playing';
+        return room;
+      });
+
+      const finalRoom = (txResult.committed && txResult.snapshot.exists()) ? txResult.snapshot.val() : null;
+      if (finalRoom && finalRoom.black?.ci === currentUser.ci) {
+        enterRoomContext(id);
+      } else {
+        // Otro alumno se adelantó y ya ocupó el lugar de negras, o la mesa
+        // dejó de existir justo en ese instante.
+        alert('Esa mesa ya fue ocupada por otro jugador. Elegí otra mesa de la lista.');
+        startLobby();
+      }
     }
 
     function reconnectRoom(id) {
@@ -1291,6 +1313,16 @@
         renderGame();
         startTimer(nextTurn);
       } else {
+        // Corrección: ambos navegadores (blancas y negras) corren su propio
+        // cronómetro local para el mismo turno, así que sin este control los
+        // dos intentarían escribir el cambio de turno en Firebase al mismo
+        // tiempo (condición de carrera). Solo debe escribir el jugador al
+        // que realmente se le acabó el tiempo; el rival solo espera el
+        // cambio a través del listener de la sala.
+        const amExpiredPlayer =
+          (expiredTurn === 'white' && gameState.white?.ci === currentUser?.ci) ||
+          (expiredTurn === 'black' && gameState.black?.ci === currentUser?.ci);
+        if (!amExpiredPlayer) return;
         const updated = Object.assign({}, gameState, { turn: nextTurn });
         await setRoom(currentRoom, updated);
       }
